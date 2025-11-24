@@ -11,15 +11,12 @@ app.use(cors());
 app.use(express.json());
 
 // ------------------ CONFIG DB (Postgres en Render) ------------------
+// Usa DATABASE_URL que configuraste en Render
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-  port: process.env.DB_PORT || 5432,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Crear tabla si no existe
@@ -59,7 +56,6 @@ app.post('/webhook/whatsapp', async (req, res) => {
   try {
     console.log('📩 Body recibido en webhook:', req.body);
 
-    // Soportamos distintos nombres de campos (por si cambias el flujo)
     const body = req.body || {};
     const phone =
       body.phone ||
@@ -85,9 +81,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
     `;
 
     const values = [phone, message, body];
-
     const result = await pool.query(insertQuery, values);
-
     const saved = result.rows[0];
 
     res.status(200).json({
@@ -107,14 +101,12 @@ app.post('/webhook/whatsapp', async (req, res) => {
 // 📥 LISTAR MENSAJES CRUDOS (para debug o vista simple)
 app.get('/messages', async (req, res) => {
   try {
-    const result = await pool.query(
-      `
+    const result = await pool.query(`
       SELECT id, phone, message, created_at
       FROM messages
       ORDER BY created_at DESC
       LIMIT 200;
-      `
-    );
+    `);
 
     res.json({
       status: 'ok',
@@ -156,9 +148,9 @@ app.get('/conversations', async (req, res) => {
       lastMessage: row.last_message,
       lastMessageAt: row.last_message_at,
       totalMessages: Number(row.total_messages),
-      status: 'NUEVO', // luego podrás mapear a IA / AGENTE / RESUELTO
+      status: 'NUEVO',
       tags: [],
-    ));
+    }));
 
     res.json({
       status: 'ok',
